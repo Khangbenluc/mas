@@ -3,6 +3,7 @@ import pandas as pd
 import altair as alt
 import os
 import random
+import io
 
 # ===== Config =====
 PASSWORD = "giaovien123"  # change password here
