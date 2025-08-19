@@ -98,7 +98,6 @@ if not df.empty:
                 ) + 2  # +2 cho thoáng
                 worksheet.set_column(i, i, max_len)
 
-            writer.close()
 
         st.download_button(
             label="⬇️ Download Excel",
