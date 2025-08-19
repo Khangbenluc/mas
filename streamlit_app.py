@@ -76,6 +76,18 @@ with st.form("add_student"):
 # Display table
 st.subheader("📋 Student List")
 st.dataframe(df, use_container_width=True)
+if not df.empty:
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+        df.to_excel(writer, index=False, sheet_name="NoHomework")
+        writer.close()
+
+    st.download_button(
+        label="⬇️ Download Excel",
+        data=buffer,
+        file_name="students_missing_assignments.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 # Search & filter
 st.subheader("🔎 Search & Filter")
