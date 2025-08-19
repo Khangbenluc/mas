@@ -103,7 +103,7 @@ if not df.empty:
         st.download_button(
             label="⬇️ Download Excel",
             data=buffer,
-            file_name="students_missing_assignments.xlsx",
+            file_name="Not Finish Homework.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
@@ -113,7 +113,7 @@ if not df.empty:
         st.download_button(
             label="⬇️ Download CSV",
             data=csv_data,
-            file_name="students_missing_assignments.csv",
+            file_name="Not Finish Homework.csv",
             mime="text/csv"
         )
 
