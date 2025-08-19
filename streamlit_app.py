@@ -69,7 +69,7 @@ with st.form("add_student"):
             df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
             save_data(df)
             st.success(f"✅ Student added: {name}")
-            st.balloons()
+            st.snow()
         else:
             st.error("❌ Please fill all required fields (Name, Class)")
 
@@ -136,6 +136,6 @@ if not df.empty:
         df = df[df["Name"] != selected]
         save_data(df)
         st.success(f"Student {selected} removed successfully!")
-        st.snow()
+        st.ballon()
 else:
     st.info("No students to remove.")
