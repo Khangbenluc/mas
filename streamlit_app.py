@@ -136,6 +136,6 @@ if not df.empty:
         df = df[df["Name"] != selected]
         save_data(df)
         st.success(f"Student {selected} removed successfully!")
-        st.ballon()
+        st.balloon()
 else:
     st.info("No students to remove.")
