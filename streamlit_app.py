@@ -78,17 +78,45 @@ with st.form("add_student"):
 st.subheader("📋 Student List")
 st.dataframe(df, use_container_width=True)
 if not df.empty:
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-        df.to_excel(writer, index=False, sheet_name="NoHomework")
-        writer.close()
+    col1, col2 = st.columns(2)
 
-    st.download_button(
-        label="⬇️ Download Excel",
-        data=buffer,
-        file_name="students_missing_assignments.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    # --- Download Excel ---
+    with col1:
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+            df.to_excel(writer, index=False, sheet_name="NoHomework")
+
+            # Lấy sheet
+            worksheet = writer.sheets["NoHomework"]
+
+            # Set width theo max độ dài text của mỗi cột
+            for i, col in enumerate(df.columns):
+                # Tính độ dài lớn nhất (bao gồm header)
+                max_len = max(
+                    df[col].astype(str).map(len).max(),
+                    len(col)
+                ) + 2  # +2 cho thoáng
+                worksheet.set_column(i, i, max_len)
+
+            writer.close()
+
+        st.download_button(
+            label="⬇️ Download Excel",
+            data=buffer,
+            file_name="students_missing_assignments.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    # --- Download CSV ---
+    with col2:
+        csv_data = df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="⬇️ Download CSV",
+            data=csv_data,
+            file_name="students_missing_assignments.csv",
+            mime="text/csv"
+        )
+✅ Giờ khi GV tải file Excel:
 
 # Search & filter
 st.subheader("🔎 Search & Filter")
@@ -132,14 +160,6 @@ quotes = [
 if st.button("🎲 Random Quote", type="primary"):
     st.info(random.choice(quotes))
 
-# Export
-st.subheader("💾 Export Data")
-st.download_button(
-    "Download CSV",
-    data=df.to_csv(index=False).encode("utf-8"),
-    file_name="ds_khong_lam_btvn.csv",
-    mime="text/csv"
-)
 
 # Delete function
 st.subheader("🗑️ Remove Student")
