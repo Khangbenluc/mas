@@ -19,13 +19,30 @@ def load_data():
     return pd.DataFrame(columns=COLUMNS)
 
 def save_data(df):
-    """Lưu dữ liệu vào Excel với auto-fit cột"""
+    # Ép kiểu ngày để tránh lỗi ArrowTypeError
+    if "Ngày" in df.columns:
+        df["Ngày"] = pd.to_datetime(df["Ngày"])
+
     with pd.ExcelWriter(EXCEL_FILE, engine="xlsxwriter") as writer:
         df.to_excel(writer, index=False, sheet_name="NoHomework")
         worksheet = writer.sheets["NoHomework"]
+
+        workbook  = writer.book
+        border_fmt = workbook.add_format({
+            'border': 1,
+            'align': 'center',
+            'valign': 'vcenter'
+        })
+
+        rows, cols = df.shape
+        worksheet.set_column(0, cols-1, 15, border_fmt)
+        worksheet.conditional_format(0, 0, rows, cols-1, 
+                                     {'type': 'no_blanks', 'format': border_fmt})
+
         for i, col in enumerate(df.columns):
             max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
-            worksheet.set_column(i, i, max_len)
+            worksheet.set_column(i, i, max_len, border_fmt)
+
 
 def export_excel(df, filename):
     """Trả về file Excel dạng BytesIO để download"""
