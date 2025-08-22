@@ -1,173 +1,138 @@
 import streamlit as st
 import pandas as pd
-import altair as alt
 import os
-import random
 import io
+from datetime import datetime
+import matplotlib.pyplot as plt
 
-# ===== Config =====
-PASSWORD = "giaovien123"  # change password here
-CSV_FILE = "ds_khong_lam_btvn.csv"
+# ---------------- CONFIG ---------------- #
+EXCEL_FILE = "data.xlsx"  # Lưu vĩnh viễn dữ liệu
+COLUMNS = ["Tên", "Lớp", "Ngày", "Giáo viên"]
 
-# ===== Helper functions =====
+st.set_page_config(page_title="Student Homework Tracker", page_icon="📚", layout="wide")
+
+# ---------------- HELPER FUNCTIONS ---------------- #
 def load_data():
-    if os.path.exists(CSV_FILE):
-        return pd.read_csv(CSV_FILE)
-    return pd.DataFrame(columns=["Name", "Class", "Date"])
+    """Load data từ file Excel nếu có, nếu không tạo DataFrame rỗng"""
+    if os.path.exists(EXCEL_FILE):
+        return pd.read_excel(EXCEL_FILE)
+    return pd.DataFrame(columns=COLUMNS)
 
 def save_data(df):
-    df.to_csv(CSV_FILE, index=False)
+    """Lưu dữ liệu vào Excel với auto-fit cột"""
+    with pd.ExcelWriter(EXCEL_FILE, engine="xlsxwriter") as writer:
+        df.to_excel(writer, index=False, sheet_name="NoHomework")
+        worksheet = writer.sheets["NoHomework"]
+        for i, col in enumerate(df.columns):
+            max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
+            worksheet.set_column(i, i, max_len)
 
-# ===== Login =====
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+def export_excel(df, filename):
+    """Trả về file Excel dạng BytesIO để download"""
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+        df.to_excel(writer, index=False, sheet_name="NoHomework")
+        worksheet = writer.sheets["NoHomework"]
+        for i, col in enumerate(df.columns):
+            max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
+            worksheet.set_column(i, i, max_len)
+    return buffer
 
-if not st.session_state.logged_in:
-    st.title("🔒 Teacher Login")
-    pwd = st.text_input("Enter password:", type="password")
-    if st.button("Login", type="primary"):
-        if pwd == PASSWORD:
-            st.session_state.logged_in = True
-            st.success("✅ Login successful! Welcome teacher 👩‍🏫")
-            st.balloons()
-        else:
-            st.error("❌ Wrong password! Try again.")
-            st.warning("⚠️ Please contact admin if you forgot the password.")
-    st.stop()
+def export_csv(df):
+    """Trả về file CSV encode UTF-8"""
+    return df.to_csv(index=False).encode("utf-8")
 
-# ===== Main App =====
-st.title("📘 Homework Management - Students who did not complete")
+def plot_stats(df, col, title):
+    """Vẽ biểu đồ đếm theo cột"""
+    fig, ax = plt.subplots()
+    counts = df[col].value_counts()
+    counts.plot(kind="bar", ax=ax)
+    ax.set_title(title)
+    ax.set_ylabel("Số HS")
+    st.pyplot(fig)
 
-# Load data
+# ---------------- APP UI ---------------- #
+st.title("📚 Student Assignment Tracker (SA-Track)")
+
 df = load_data()
 
-# Animated buttons section
-st.subheader("✨ Quick Actions")
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    if st.button("🎉 Celebrate", type="primary"):
-        st.balloons()
-        st.success("Great job! Keep motivating students.")
-with col2:
-    if st.button("🔥 Warning", type="secondary"):
-        st.warning("Some students need extra attention today!")
-        st.snow()
-with col3:
-    if st.button("💀 Critical", type="secondary"):
-        st.error("Too many students skipped homework! 🚨")
-
-# Form input
-st.subheader("➕ Add student record")
-with st.form("add_student"):
-    name = st.text_input("Student name")
-    class_name = st.text_input("Class")
+# --- FORM INPUT --- #
+st.sidebar.header("➕ Add Student")
+with st.sidebar.form("add_student"):
+    name = st.text_input("Student Name")
+    classroom = st.text_input("Class")
     date = st.date_input("Date")
-    submitted = st.form_submit_button("Add")
+    teacher = st.text_input("Teacher Name")  # phân biệt GV
+    submitted = st.form_submit_button("Add Student ❄️")
+
     if submitted:
-        if name and class_name:
-            new_row = {"Name": name, "Class": class_name, "Date": date}
+        if name.strip() == "" or classroom.strip() == "" or teacher.strip() == "":
+            st.sidebar.error("⚠️ Please fill all fields!")
+        else:
+            new_row = {"Tên": name, "Lớp": classroom, "Ngày": date, "Giáo viên": teacher}
             df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
             save_data(df)
-            st.success(f"✅ Student added: {name}")
-            st.snow()
-        else:
-            st.error("❌ Please fill all required fields (Name, Class)")
+            st.sidebar.success(f"✅ Added: {name}")
+            st.snow()   # hiệu ứng thêm HS
 
-# Display table
-st.subheader("📋 Student List")
-st.dataframe(df, use_container_width=True)
-if not df.empty:
+# --- MAIN DATAFRAME --- #
+st.subheader("📋 Students not finished homework")
+if df.empty:
+    st.info("No data yet. Please add students from sidebar.")
+else:
+    st.dataframe(df, use_container_width=True)
+
+    # --- REMOVE STUDENT --- #
+    with st.expander("🗑️ Remove Student"):
+        selected = st.selectbox("Select student to remove", df["Tên"].unique())
+        if st.button("Remove Student 🎈"):
+            df = df[df["Tên"] != selected]
+            save_data(df)
+            st.success(f"🗑️ Removed {selected}")
+            st.balloons()  # hiệu ứng xoá HS
+
+    # --- EXPORT SECTION --- #
+    st.subheader("💾 Export Data")
     col1, col2 = st.columns(2)
 
-    # --- Download Excel ---
+    today_str = datetime.now().strftime("%d-%m-%Y")
+    filename_base = f"Not Finish Homework {today_str}"
+
     with col1:
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-            df.to_excel(writer, index=False, sheet_name="NoHomework")
-
-            # Lấy sheet
-            worksheet = writer.sheets["NoHomework"]
-
-            # Set width theo max độ dài text của mỗi cột
-            for i, col in enumerate(df.columns):
-                # Tính độ dài lớn nhất (bao gồm header)
-                max_len = max(
-                    df[col].astype(str).map(len).max(),
-                    len(col)
-                ) + 2  # +2 cho thoáng
-                worksheet.set_column(i, i, max_len)
-
-
+        buffer = export_excel(df, filename_base)
         st.download_button(
             label="⬇️ Download Excel",
             data=buffer,
-            file_name="Not Finish Homework.xlsx",
+            file_name=f"{filename_base}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-    # --- Download CSV ---
     with col2:
-        csv_data = df.to_csv(index=False).encode("utf-8")
+        csv_data = export_csv(df)
         st.download_button(
             label="⬇️ Download CSV",
             data=csv_data,
-            file_name="Not Finish Homework.csv",
+            file_name=f"{filename_base}.csv",
             mime="text/csv"
         )
 
+    # --- DASHBOARD / STATS --- #
+    st.subheader("📊 Dashboard & Statistics")
+    c1, c2, c3 = st.columns(3)
 
-# Search & filter
-st.subheader("🔎 Search & Filter")
-search_name = st.text_input("Search by student name")
-filter_class = st.text_input("Filter by class")
+    with c1:
+        st.metric("👨‍🎓 Total Students", len(df))
+    with c2:
+        st.metric("🏫 Classes", df["Lớp"].nunique())
+    with c3:
+        st.metric("👩‍🏫 Teachers", df["Giáo viên"].nunique())
 
-filtered_df = df.copy()
-if search_name:
-    filtered_df = filtered_df[filtered_df["Name"].str.contains(search_name, case=False)]
-if filter_class:
-    filtered_df = filtered_df[filtered_df["Class"].str.contains(filter_class, case=False)]
+    st.markdown("---")
+    colA, colB = st.columns(2)
 
-st.write("Filtered results:")
-st.dataframe(filtered_df, use_container_width=True)
+    with colA:
+        plot_stats(df, "Lớp", "Students per Class")
+    with colB:
+        plot_stats(df, "Giáo viên", "Students per Teacher")
 
-# Statistics
-st.subheader("📊 Statistics Dashboard")
-if not df.empty:
-    stats_class = df["Class"].value_counts().reset_index()
-    stats_class.columns = ["Class", "Students"]
-
-    chart = alt.Chart(stats_class).mark_bar().encode(
-        x="Class",
-        y="Students",
-        tooltip=["Class", "Students"]
-    ).properties(title="Number of students who did not complete homework per class")
-
-    st.altair_chart(chart, use_container_width=True)
-else:
-    st.info("No data available yet.")
-
-# Random motivational button
-st.subheader("💡 Motivation")
-quotes = [
-    "Every mistake is a step to success!",
-    "Failure is just the opportunity to begin again.",
-    "Keep pushing, keep trying. Homework matters!",
-    "Discipline is the bridge between goals and accomplishment."
-]
-
-if st.button("🎲 Random Quote", type="primary"):
-    st.info(random.choice(quotes))
-
-
-# Delete function
-st.subheader("🗑️ Remove Student")
-if not df.empty:
-    selected = st.selectbox("Select a student to remove", df["Name"].unique())
-    if st.button("Remove ❌", type="secondary"):
-        df = df[df["Name"] != selected]
-        save_data(df)
-        st.success(f"Student {selected} removed successfully!")
-        st.balloons()
-else:
-    st.info("No students to remove.")
+# ---------------- END ---------------- #
